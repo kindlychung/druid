@@ -18,10 +18,12 @@ use std::ops::{Index, IndexMut};
 use std::time::{Duration, Instant};
 
 use druid::{
-    AppLauncher, BoxConstraints, Color, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle,
+    AppLauncher, BoxConstraints, Color, Data, Env, Event, EventCtx, LayoutCtx, Lens, LifeCycle,
     LifeCycleCtx, LocalizedString, MouseButton, PaintCtx, Point, Rect, RenderContext, Size,
     TimerToken, UpdateCtx, Widget, WindowDesc,
 };
+
+use druid::widget::{Button, Flex, WidgetExt};
 
 const GRID_SIZE: usize = 40;
 const POOL_SIZE: usize = GRID_SIZE * GRID_SIZE;
@@ -122,10 +124,18 @@ impl PartialEq for Grid {
     }
 }
 
-#[derive(Clone)]
+impl Data for Grid {
+    fn same(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+#[derive(Clone, Lens, Data)]
 struct AppData {
+    #[druid(same_fn = "PartialEq::eq")]
     grid: Grid,
     drawing: bool,
+    paused: bool,
 }
 
 impl Grid {
@@ -134,6 +144,14 @@ impl Grid {
             storage: [false; POOL_SIZE],
         }
     }
+
+    /// Remove all items from the grid
+    fn clear(&mut self) {
+        for idx in 0..POOL_SIZE {
+            self.storage[idx] = false;
+        }
+    }
+
     pub fn evolve(&mut self) {
         let mut indices_to_mutate: Vec<GridPos> = vec![];
         for row in 0..GRID_SIZE {
@@ -199,12 +217,6 @@ impl Grid {
     }
 }
 
-impl Data for AppData {
-    fn same(&self, other: &Self) -> bool {
-        self.grid == other.grid
-    }
-}
-
 struct GameOfLifeWidget {
     timer_id: TimerToken,
     cell_size: Size,
@@ -236,8 +248,10 @@ impl Widget<AppData> for GameOfLifeWidget {
             }
             Event::Timer(id) => {
                 if *id == self.timer_id {
-                    data.grid.evolve();
-                    ctx.request_paint();
+                    if !data.paused {
+                        data.grid.evolve();
+                        ctx.request_paint();
+                    }
                     let deadline = Instant::now() + Duration::from_millis(550);
                     self.timer_id = ctx.request_timer(deadline);
                 }
@@ -342,15 +356,56 @@ fn blinker(top: GridPos) -> Option<[GridPos; 3]> {
     Some([top, center, center.below().unwrap()])
 }
 
+fn make_widget() -> impl Widget<AppData> {
+    Flex::column()
+        .with_child(
+            GameOfLifeWidget {
+                timer_id: TimerToken::INVALID,
+                cell_size: Size {
+                    width: 0.0,
+                    height: 0.0,
+                },
+            },
+            1.0,
+        )
+        .with_child(
+            Flex::row()
+                .with_child(
+                    Button::new(
+                        |data: &bool, _: &Env| match data {
+                            true => "Resume".into(),
+                            false => "Pause".into(),
+                        },
+                        |ctx, data: &mut bool, _: &Env| {
+                            *data = !*data;
+                            ctx.request_layout();
+                            ctx.request_paint();
+                        },
+                    )
+                    .lens(AppData::paused)
+                    .center()
+                    .padding((8.0, 4.0)),
+                    0.0,
+                )
+                .with_child(
+                    Button::new("Clear", |ctx, data: &mut Grid, _: &Env| {
+                        data.clear();
+                        ctx.request_paint();
+                    })
+                    .lens(AppData::grid)
+                    .center()
+                    .padding((8.0, 4.0)),
+                    0.0,
+                )
+                .fix_height(40.)
+                .background(Color::grey(0.3))
+                .padding(10.0),
+            0.,
+        )
+}
+
 fn main() {
-    let window = WindowDesc::new(|| GameOfLifeWidget {
-        timer_id: TimerToken::INVALID,
-        cell_size: Size {
-            width: 0.0,
-            height: 0.0,
-        },
-    })
-    .title(
+    let window = WindowDesc::new(make_widget).title(
         LocalizedString::new("custom-widget-demo-window-title").with_placeholder("Game of Life"),
     );
     let mut grid = Grid::new();
@@ -367,6 +422,7 @@ fn main() {
         .launch(AppData {
             grid,
             drawing: false,
+            paused: false,
         })
         .expect("launch failed");
 }

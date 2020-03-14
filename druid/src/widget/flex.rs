@@ -22,6 +22,16 @@ use crate::{
     UpdateCtx, Widget, WidgetPod,
 };
 
+macro_rules! print_debug {
+    ($name:ident) => {
+        println!(
+            "{}: {:?}",
+            stringify!($name),
+            $name,
+        );
+    };
+}
+
 /// A container with either horizontal or vertical layout.
 pub struct Flex<T> {
     direction: Axis,
@@ -308,7 +318,11 @@ impl<T: Data> Widget<T> for Flex<T> {
         // Measure non-flex children.
         let mut total_non_flex = 0.0;
         let mut minor = self.direction.minor(bc.min());
+        print_debug!(bc);
+        print_debug!(loosened_bc);
         for child in &mut self.children {
+            print_debug!(total_non_flex);
+            print_debug!(minor);
             if child.params.flex == 0.0 {
                 let child_bc = self
                     .direction

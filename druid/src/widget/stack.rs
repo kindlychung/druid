@@ -65,6 +65,8 @@ impl<T: Data> Stack<T> {
     ///
     /// See also `with_child`.
     pub fn add_child(&mut self, child: impl Widget<T> + 'static) {
+        let id = child.id();
+        print_debug!(id);
         self.children.push(WidgetPod::new(child).boxed());
     }
 
@@ -103,13 +105,16 @@ impl<T: Data> Widget<T> for Stack<T> {
         let mut max_height: f64 = 0.;
         for child in &mut self.children {
             let child_size: Size = child.layout(layout_ctx, &loosened_bc, data, env);
+            print_debug!(child_size);
             max_width = max_width.max(child_size.width);
             max_height = max_height.max(child_size.height);
             // Stash size.
             let rect = Rect::from_origin_size(Point::ORIGIN, child_size);
             child.set_layout_rect(rect);
         }
-        Size{ width: max_width, height: max_height }
+        let stack_size = Size{ width: max_width, height: max_height };
+        print_debug!(stack_size);
+        stack_size
     }
 
     fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &T, env: &Env) {

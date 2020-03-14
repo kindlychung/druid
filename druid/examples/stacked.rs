@@ -12,26 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This example shows how to construct a basic layout.
+//! This example shows how to construct a stack layout.
 
-use druid::widget::{Button, Flex, Label, SizedBox, WidgetExt, CrossAxisAlignment, MainAxisAlignment, Stack};
-use druid::{AppLauncher, Color, LocalizedString, Widget, WindowDesc};
+use druid::widget::{Stack, ImageData, Image};
+use druid::{AppLauncher, LocalizedString, Widget, WindowDesc};
 
 fn build_app() -> impl Widget<u32> {
     // Begin construction of vertical layout
-    let mut stacked = Stack::new();
-    for i in (50..10).step_by(10) {
-        let size = (i * 10) as f64;
-        let btn = Button::new(format!("Button #{}", i), Button::noop)
-            .fix_height(size)
-            .fix_width(size);
-        stacked.add_child(btn );
-    }
-    stacked.debug_paint_layout()
+    let png_data = ImageData::from_file("examples/PicWithAlpha.png").unwrap();
+    let dog_data = ImageData::from_file("examples/dog.jpg").unwrap();
+    Stack::new()
+        .with_child(Image::new(dog_data))
+        .with_child(Image::new(png_data))
 }
 
 fn main() {
     let window = WindowDesc::new(build_app)
+        .window_size((800., 800.))
         .title(LocalizedString::new("layout-demo-window-title").with_placeholder("Stacked"));
     AppLauncher::with_window(window)
         .use_simple_logger()

@@ -21,12 +21,10 @@ use std::path::Path;
 
 use image;
 
-use crate::{
-    piet::{ImageFormat, InterpolationMode},
-    widget::common::FillStrat,
-    Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx,
-    PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget,
-};
+use crate::{piet::{ImageFormat, InterpolationMode}, widget::common::FillStrat, Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget};
+use crate::{Lens, LensExt};
+use std::sync::Arc;
+use std::marker::PhantomData;
 
 /// A widget that renders an Image
 pub struct Image {
@@ -106,6 +104,7 @@ pub struct ImageData {
     y_pixels: u32,
 }
 
+
 impl ImageData {
     /// Create an empty Image
     pub fn empty() -> Self {
@@ -178,74 +177,72 @@ impl Default for ImageData {
     }
 }
 
+pub trait ImageDataProvider: Data {
+    fn img(&self) -> &ImageData;
+    fn img_mut(&mut self) -> &mut ImageData;
+}
 
-// pub struct DynamicImage<T> {
-//     phantom: PhantomData<T>,
-//     fill: FillStrat,
-// }
-//
-//
-// impl<T: Data> Image<T> {
-//     /// Create an image drawing widget from `ImageData`.
-//     ///
-//     /// The Image will scale to fit its box constraints.
-//     pub fn new(image_data: ImageData) -> Self {
-//         Image {
-//             image_data,
-//             phantom: Default::default(),
-//             fill: FillStrat::default(),
-//         }
-//     }
-//
-//     /// A builder-style method for specifying the fill strategy.
-//     pub fn fill_mode(mut self, mode: FillStrat) -> Self {
-//         self.fill = mode;
-//         self
-//     }
-//
-//     /// Modify the widget's `FillStrat`.
-//     pub fn set_fill(&mut self, newfil: FillStrat) {
-//         self.fill = newfil;
-//     }
-// }
-//
-// impl<T: Data> Widget<T> for Image<T> {
-//     fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
-//
-//     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &T, _env: &Env) {}
-//
-//     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
-//
-//     fn layout(
-//         &mut self,
-//         _layout_ctx: &mut LayoutCtx,
-//         bc: &BoxConstraints,
-//         _data: &T,
-//         _env: &Env,
-//     ) -> Size {
-//         bc.debug_check("Image");
-//
-//         if bc.is_width_bounded() {
-//             bc.max()
-//         } else {
-//             bc.constrain(self.image_data.get_size())
-//         }
-//     }
-//
-//     fn paint(&mut self, paint_ctx: &mut PaintCtx, _data: &T, _env: &Env) {
-//         // dbg!(paint_ctx.size());
-//         // dbg!(self.image_data.get_size());
-//         let offset_matrix = self
-//             .fill
-//             .affine_to_fill(paint_ctx.size(), self.image_data.get_size());
-//         dbg!(offset_matrix);
-//
-//         // The ImageData's to_piet function does not clip to the image's size
-//         // CairoRenderContext is very like druids but with some extra goodies like clip
-//         if self.fill != FillStrat::Contain {
-//             let clip_rect = Rect::ZERO.with_size(paint_ctx.size());
-//             paint_ctx.clip(clip_rect);
-//         }
-//         self.image_data.to_piet(offset_matrix, paint_ctx);
-//     }
-// }
+pub struct ExternalImage<T> where T: ImageDataProvider {
+    phantom_data: PhantomData<T>,
+    fill: FillStrat,
+}
+
+
+impl<T: ImageDataProvider> ExternalImage<T> {
+    /// Create an image drawing widget from `ImageData`.
+    ///
+    /// The Image will scale to fit its box constraints.
+    pub fn new() -> Self {
+        ExternalImage {
+            fill: FillStrat::default(),
+            phantom_data: PhantomData,
+        }
+    }
+
+    /// A builder-style method for specifying the fill strategy.
+    pub fn with_fill_mode(mut self, mode: FillStrat) -> Self {
+        self.fill = mode;
+        self
+    }
+
+    /// Modify the widget's `FillStrat`.
+    pub fn set_fill(&mut self, newfil: FillStrat) {
+        self.fill = newfil;
+    }
+}
+
+impl<T: ImageDataProvider> Widget<T> for ExternalImage<T> {
+    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
+
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: & T, _env: &Env) {}
+
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
+
+    fn layout(
+        &mut self,
+        _layout_ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        data: &T,
+        _env: &Env,
+    ) -> Size {
+        bc.debug_check("ExternalImage");
+        if bc.is_width_bounded() {
+            bc.max()
+        } else {
+            bc.constrain(data.img().get_size())
+        }
+    }
+
+    fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &T, _env: &Env) {
+        let offset_matrix = self
+            .fill
+            .affine_to_fill(paint_ctx.size(), data.img().get_size());
+        // The ImageData's to_piet function does not clip to the image's size
+        // CairoRenderContext is very like druids but with some extra goodies like clip
+        if self.fill != FillStrat::Contain {
+            let clip_rect = Rect::ZERO.with_size(paint_ctx.size());
+            paint_ctx.clip(clip_rect);
+        }
+        data.img().to_piet(offset_matrix, paint_ctx);
+    }
+}

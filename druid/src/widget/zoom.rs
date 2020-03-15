@@ -15,14 +15,7 @@
 //! An Image widget.
 //! Please consider using SVG and the SVG wideget as it scales much better.
 
-use std::convert::AsRef;
-use std::error::Error;
-use std::marker::PhantomData;
-use std::path::Path;
-
-use image;
-
-use crate::{piet::{ImageFormat, InterpolationMode}, widget::common::FillStrat, Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget, BoxedWidget, WidgetPod, Point};
+use crate::{Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget, BoxedWidget, WidgetPod, Point};
 
 pub struct Zoom<T> {
     child: BoxedWidget<T>,

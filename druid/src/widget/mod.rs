@@ -50,7 +50,7 @@ mod zoom;
 
 #[cfg(feature = "image")]
 #[cfg_attr(docsrs, doc(cfg(feature = "image")))]
-pub use self::image::{Image, ImageData};
+pub use self::image::{Image, ImageData, ExternalImage, ImageDataProvider};
 pub use align::Align;
 pub use button::Button;
 pub use checkbox::Checkbox;

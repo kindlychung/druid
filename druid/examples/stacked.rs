@@ -19,11 +19,13 @@ use druid::{AppLauncher, LocalizedString, Widget, WindowDesc};
 
 fn build_app() -> impl Widget<u32> {
     // Begin construction of vertical layout
-    let png_data = ImageData::from_file("examples/PicWithAlpha.png").unwrap();
+    let simple_data = ImageData::from_file("examples/PicWithAlpha.png").unwrap();
     let dog_data = ImageData::from_file("examples/dog.jpg").unwrap();
+    let dog_img = Image::new(dog_data);
+    let simple_img = Image::new(simple_data);
     Stack::new()
-        .with_child(Image::new(dog_data))
-        .with_child(Image::new(png_data))
+        .with_child(dog_img)
+        .with_child(simple_img)
         .with_child(Button::new("Button 1", Button::noop).fix_height(300.).fix_width(300.))
         .with_child(Button::new("Button 2", Button::noop))
 }

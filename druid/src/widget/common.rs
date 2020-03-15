@@ -47,6 +47,9 @@ impl FillStrat {
     pub fn affine_to_fill(self, parent: Size, fit_box: Size) -> Affine {
         let raw_scalex = parent.width / fit_box.width;
         let raw_scaley = parent.height / fit_box.height;
+        dbg!(parent);
+        dbg!(raw_scalex);
+        dbg!(raw_scaley);
 
         let (scalex, scaley) = match self {
             FillStrat::Contain => {
@@ -70,6 +73,8 @@ impl FillStrat {
         let origin_x = (parent.width - (fit_box.width * scalex)) / 2.0;
         let origin_y = (parent.height - (fit_box.height * scaley)) / 2.0;
 
-        Affine::new([scalex, 0., 0., scaley, origin_x, origin_y])
+        let affine_to_fill_result = Affine::new([scalex, 0., 0., scaley, origin_x, origin_y]);
+        dbg!(affine_to_fill_result);
+        affine_to_fill_result
     }
 }

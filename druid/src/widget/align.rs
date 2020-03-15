@@ -107,9 +107,13 @@ impl<T: Data> Widget<T> for Align<T> {
         let mut my_size = size;
         if bc.is_width_bounded() {
             my_size.width = bc.max().width;
+            // dbg!("width bounded");
+            // dbg!(my_size.width);
         }
         if bc.is_height_bounded() {
             my_size.height = bc.max().height;
+            // dbg!("height bounded");
+            // dbg!(my_size.height);
         }
 
         if let Some(width) = self.width_factor {

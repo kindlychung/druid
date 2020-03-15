@@ -102,6 +102,7 @@ impl<T: Data> Widget<T> for Stack<T> {
             width: max_width,
             height: max_height,
         };
+        dbg!(stack_size);
         stack_size
     }
 

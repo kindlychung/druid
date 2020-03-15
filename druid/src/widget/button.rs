@@ -78,6 +78,7 @@ impl<T: Data> Widget<T> for Button<T> {
             }
             _ => (),
         }
+        ctx.set_handled();
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {

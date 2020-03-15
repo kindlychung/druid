@@ -46,6 +46,7 @@ mod switch;
 mod textbox;
 mod view_switcher;
 mod widget_ext;
+mod zoom;
 
 #[cfg(feature = "image")]
 #[cfg_attr(docsrs, doc(cfg(feature = "image")))]
@@ -71,6 +72,7 @@ pub use sized_box::SizedBox;
 pub use slider::Slider;
 pub use split::Split;
 pub use stack::Stack;
+pub use zoom::Zoom;
 pub use stepper::Stepper;
 #[cfg(feature = "svg")]
 #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]

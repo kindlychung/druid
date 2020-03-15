@@ -14,7 +14,9 @@
 
 //! This example shows how to construct a basic layout.
 
-use druid::widget::{Button, Flex, Label, SizedBox, WidgetExt, CrossAxisAlignment, MainAxisAlignment};
+use druid::widget::{
+    Button, CrossAxisAlignment, Flex, Label, MainAxisAlignment, SizedBox, WidgetExt,
+};
 use druid::{AppLauncher, Color, LocalizedString, Widget, WindowDesc};
 
 fn build_app() -> impl Widget<u32> {
@@ -26,11 +28,15 @@ fn build_app() -> impl Widget<u32> {
         // let weight = if i == 2 { 3.0 } else { 1.0 };
         let weight = 0.;
         let mut btn = Button::new(format!("Button #{}", i), Button::noop).fix_height(40.);
-        if i == 2 { btn = btn.fix_width(1200.); }
+        if i == 2 {
+            btn = btn.fix_width(1200.);
+        }
         col.add_child(btn, weight);
     }
 
-    col.main_axis_alignment(MainAxisAlignment::SpaceEvenly).cross_axis_alignment(CrossAxisAlignment::Center).debug_paint_layout()
+    col.main_axis_alignment(MainAxisAlignment::SpaceEvenly)
+        .cross_axis_alignment(CrossAxisAlignment::Center)
+        .debug_paint_layout()
 }
 
 fn main() {

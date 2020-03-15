@@ -17,7 +17,6 @@
 
 use std::convert::AsRef;
 use std::error::Error;
-use std::marker::PhantomData;
 use std::path::Path;
 
 use image;
@@ -30,20 +29,18 @@ use crate::{
 };
 
 /// A widget that renders an Image
-pub struct Image<T> {
+pub struct Image {
     image_data: ImageData,
-    phantom: PhantomData<T>,
     fill: FillStrat,
 }
 
-impl<T: Data> Image<T> {
+impl Image {
     /// Create an image drawing widget from `ImageData`.
     ///
     /// The Image will scale to fit its box constraints.
     pub fn new(image_data: ImageData) -> Self {
         Image {
             image_data,
-            phantom: Default::default(),
             fill: FillStrat::default(),
         }
     }
@@ -60,18 +57,18 @@ impl<T: Data> Image<T> {
     }
 }
 
-impl<T: Data> Widget<T> for Image<T> {
-    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
+impl Widget<u8> for Image {
+    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut u8, _env: &Env) {}
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &T, _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &u8, _env: &Env) {}
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &u8, _data: &u8, _env: &Env) {}
 
     fn layout(
         &mut self,
         _layout_ctx: &mut LayoutCtx,
         bc: &BoxConstraints,
-        _data: &T,
+        _data: &u8,
         _env: &Env,
     ) -> Size {
         bc.debug_check("Image");
@@ -83,10 +80,13 @@ impl<T: Data> Widget<T> for Image<T> {
         }
     }
 
-    fn paint(&mut self, paint_ctx: &mut PaintCtx, _data: &T, _env: &Env) {
+    fn paint(&mut self, paint_ctx: &mut PaintCtx, _data: &u8, _env: &Env) {
+        // dbg!(paint_ctx.size());
+        // dbg!(self.image_data.get_size());
         let offset_matrix = self
             .fill
             .affine_to_fill(paint_ctx.size(), self.image_data.get_size());
+        dbg!(offset_matrix);
 
         // The ImageData's to_piet function does not clip to the image's size
         // CairoRenderContext is very like druids but with some extra goodies like clip

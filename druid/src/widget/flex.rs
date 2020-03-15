@@ -24,11 +24,7 @@ use crate::{
 
 macro_rules! print_debug {
     ($name:ident) => {
-        println!(
-            "{}: {:?}",
-            stringify!($name),
-            $name,
-        );
+        println!("{}: {:?}", stringify!($name), $name,);
     };
 }
 

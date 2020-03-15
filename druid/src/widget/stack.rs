@@ -17,15 +17,14 @@
 use crate::kurbo::{Point, Rect, Size};
 
 use crate::widget::SizedBox;
-use crate::{BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, UpdateCtx, Widget, WidgetPod, BoxedWidget};
+use crate::{
+    BoxConstraints, BoxedWidget, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx,
+    PaintCtx, UpdateCtx, Widget, WidgetPod,
+};
 
 macro_rules! print_debug {
     ($name:ident) => {
-        println!(
-            "{}: {:?}",
-            stringify!($name),
-            $name,
-        );
+        println!("{}: {:?}", stringify!($name), $name,);
     };
 }
 
@@ -33,10 +32,6 @@ macro_rules! print_debug {
 pub struct Stack<T> {
     children: Vec<BoxedWidget<T>>,
 }
-
-
-
-
 
 #[derive(Copy, Clone, Default)]
 struct Params {
@@ -69,8 +64,6 @@ impl<T: Data> Stack<T> {
         print_debug!(id);
         self.children.push(WidgetPod::new(child).boxed());
     }
-
-
 }
 
 impl<T: Data> Widget<T> for Stack<T> {
@@ -112,7 +105,10 @@ impl<T: Data> Widget<T> for Stack<T> {
             let rect = Rect::from_origin_size(Point::ORIGIN, child_size);
             child.set_layout_rect(rect);
         }
-        let stack_size = Size{ width: max_width, height: max_height };
+        let stack_size = Size {
+            width: max_width,
+            height: max_height,
+        };
         print_debug!(stack_size);
         stack_size
     }
@@ -123,9 +119,3 @@ impl<T: Data> Widget<T> for Stack<T> {
         }
     }
 }
-
-
-
-
-
-

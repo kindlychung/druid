@@ -17,7 +17,7 @@
 use druid::widget::{Image, ImageData, Stack, Button, WidgetExt};
 use druid::{AppLauncher, LocalizedString, Widget, WindowDesc};
 
-fn build_app() -> impl Widget<u32> {
+fn build_app() -> impl Widget<u8> {
     // Begin construction of vertical layout
     let simple_data = ImageData::from_file("examples/PicWithAlpha.png").unwrap();
     let dog_data = ImageData::from_file("examples/dog.jpg").unwrap();
@@ -36,6 +36,6 @@ fn main() {
         .title(LocalizedString::new("layout-demo-window-title").with_placeholder("Stacked"));
     AppLauncher::with_window(window)
         .use_simple_logger()
-        .launch(0u32)
+        .launch(0u8)
         .expect("launch failed");
 }

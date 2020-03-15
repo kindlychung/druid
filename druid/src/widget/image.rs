@@ -17,7 +17,6 @@
 
 use std::convert::AsRef;
 use std::error::Error;
-use std::marker::PhantomData;
 use std::path::Path;
 
 use image;

@@ -64,6 +64,7 @@ impl<T: Data> Widget<T> for Button<T> {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut T, env: &Env) {
         match event {
             Event::MouseDown(_) => {
+                ctx.set_handled();
                 ctx.set_active(true);
                 ctx.request_paint();
             }
@@ -75,10 +76,10 @@ impl<T: Data> Widget<T> for Button<T> {
                         (self.action)(ctx, data, env);
                     }
                 }
+                ctx.set_handled();
             }
             _ => (),
         }
-        ctx.set_handled();
     }
 
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {

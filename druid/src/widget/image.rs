@@ -21,11 +21,17 @@ use std::path::Path;
 
 use image;
 
-use crate::{piet::{ImageFormat, InterpolationMode}, widget::common::FillStrat, Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget, Point};
+use crate::{
+    piet::{ImageFormat, InterpolationMode},
+    widget::common::FillStrat,
+    Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx,
+    PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget,
+};
 use crate::{Lens, LensExt};
-use std::sync::Arc;
+use image::{DynamicImage, GenericImage, GenericImageView, Pixel, Primitive, Rgba, RgbaImage};
 use std::marker::PhantomData;
-use image::{Pixel, Primitive, Rgba, DynamicImage, GenericImageView, RgbaImage, GenericImage};
+use std::sync::Arc;
+use std::borrow::BorrowMut;
 
 /// A widget that renders an Image
 pub struct Image {
@@ -62,7 +68,6 @@ impl Widget<u8> for Image {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &u8, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &u8, _data: &u8, _env: &Env) {}
-
 
     fn layout(
         &mut self,
@@ -105,7 +110,6 @@ pub struct ImageData {
     pub x_pixels: u32,
     pub y_pixels: u32,
 }
-
 
 impl ImageData {
     /// Create an empty Image
@@ -186,7 +190,9 @@ pub trait ImageDataProvider: Data {
 
 impl Data for ImageData {
     fn same(&self, other: &Self) -> bool {
-        self.pixels == other.pixels && self.x_pixels == other.x_pixels && self.y_pixels == other.y_pixels
+        self.pixels == other.pixels
+            && self.x_pixels == other.x_pixels
+            && self.y_pixels == other.y_pixels
     }
 }
 
@@ -215,12 +221,19 @@ pub trait WithImageData: Data {
     fn pixels(&self) -> Vec<u8>;
     fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>);
     fn set_pixel_with_transform(&mut self, x: f64, y: f64, pixel: Rgba<u8>, transform: &Affine) {
-        let point = Point{x, y};
+        let point = Point { x, y };
         let point = *transform * point;
         self.set_pixel(point.x as u32, point.y as u32, pixel);
     }
-    fn fill_square_with_transform(&mut self, x: f64, y: f64, size: u32, pixel: Rgba<u8>, transform: &Affine) {
-        let point = Point{x, y};
+    fn fill_square_with_transform(
+        &mut self,
+        x: f64,
+        y: f64,
+        size: u32,
+        pixel: Rgba<u8>,
+        transform: &Affine,
+    ) {
+        let point = Point { x, y };
         let point = *transform * point;
         self.fill_square(point.x as u32, point.y as u32, size, pixel)
     }
@@ -239,7 +252,10 @@ pub trait WithImageData: Data {
         }
     }
     fn size(&self) -> Size {
-        Size { width: self.width() as f64, height: self.height() as f64 }
+        Size {
+            width: self.width() as f64,
+            height: self.height() as f64,
+        }
     }
     fn to_piet(&self, offset_matrix: Affine, paint_ctx: &mut PaintCtx) {
         paint_ctx
@@ -253,10 +269,8 @@ pub trait WithImageData: Data {
                         ImageFormat::RgbaSeparate,
                     )
                     .unwrap();
-                let rec = Rect::from_origin_size(
-                    (0.0, 0.0),
-                    (self.width() as f64, self.height() as f64),
-                );
+                let rec =
+                    Rect::from_origin_size((0.0, 0.0), (self.width() as f64, self.height() as f64));
                 ctx.draw_image(&im, rec, InterpolationMode::Bilinear);
                 Ok(())
             })
@@ -278,32 +292,100 @@ impl WithImageData for RgbaImage {
     }
 
     fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
-        let mut p ;
-        {
-            p = self.get_pixel(x, y);
-        }
-        let mut pixel = pixel;
-        for i in 0..3 {
-            pixel[i] = pixel[i] / 2 + p[i];
-        }
+        self.put_pixel(x, y, pixel)
+    }
+}
+
+#[derive(Clone)]
+pub struct TwoLayerRgba {
+    top: Arc<RgbaImage>,
+    bottom: Arc<RgbaImage>,
+}
+
+impl Data for TwoLayerRgba {
+    fn same(&self, other: &Self) -> bool {
+        self.top.same(&other.top) && self.bottom.same(&other.bottom)
+    }
+}
+
+impl TwoLayerRgba {
+    pub fn new(top: RgbaImage, bottom: RgbaImage) -> TwoLayerRgba {
+        assert!(top.width() == bottom.width() && top.height() == bottom.height());
+        TwoLayerRgba { top: Arc::new(top), bottom: Arc::new(bottom) }
+    }
+    pub fn from_bottom(bottom: RgbaImage) -> TwoLayerRgba {
+        let top = DynamicImage::new_rgba8(bottom.width(), bottom.height()).to_rgba();
+        TwoLayerRgba { top: Arc::new(top), bottom: Arc::new(bottom) }
+    }
+    pub fn put_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
+        Arc::make_mut(&mut self.top).put_pixel(x, y, pixel);
+    }
+}
+
+impl WithImageData for TwoLayerRgba {
+    fn width(&self) -> u32 {
+        self.top.width()
+    }
+
+    fn height(&self) -> u32 {
+        self.top.height()
+    }
+
+    fn pixels(&self) -> Vec<u8> {
+        self.bottom.to_vec()
+    }
+
+    fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
         self.put_pixel(x, y, pixel)
     }
 
-
-}
-
-impl Data for RgbaImage {
-    fn same(&self, other: &Self) -> bool {
-        self.width() == other.width() && self.height() == other.height() && self.to_vec() == other.to_vec()
+    fn to_piet(&self, offset_matrix: Affine, paint_ctx: &mut PaintCtx) {
+        paint_ctx
+            .with_save(|ctx| {
+                ctx.transform(offset_matrix);
+                let im_top = ctx
+                    .make_image(
+                        self.width() as usize,
+                        self.height() as usize,
+                        &self.top.to_vec(),
+                        ImageFormat::RgbaSeparate,
+                    )
+                    .unwrap();
+                let im_bottom = ctx
+                    .make_image(
+                        self.width() as usize,
+                        self.height() as usize,
+                        &self.bottom.to_vec(),
+                        ImageFormat::RgbaSeparate,
+                    )
+                    .unwrap();
+                let rec =
+                    Rect::from_origin_size((0.0, 0.0), (self.width() as f64, self.height() as f64));
+                ctx.draw_image(&im_bottom, rec, InterpolationMode::Bilinear);
+                ctx.draw_image(&im_top, rec, InterpolationMode::Bilinear);
+                Ok(())
+            })
+            .unwrap();
     }
 }
 
 
-pub struct ExternalImage<T> where T: WithImageData {
+
+impl Data for RgbaImage {
+    fn same(&self, other: &Self) -> bool {
+        self.width() == other.width()
+            && self.height() == other.height()
+            && self.to_vec() == other.to_vec()
+    }
+}
+
+pub struct ExternalImage<T>
+where
+    T: WithImageData,
+{
     phantom: PhantomData<T>,
     fill: FillStrat,
 }
-
 
 impl<T: WithImageData> ExternalImage<T> {
     pub fn new() -> Self {
@@ -350,9 +432,7 @@ impl<T: WithImageData> Widget<T> for ExternalImage<T> {
     }
 
     fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &T, _env: &Env) {
-        let offset_matrix = self
-            .fill
-            .affine_to_fill(paint_ctx.size(), data.size());
+        let offset_matrix = self.fill.affine_to_fill(paint_ctx.size(), data.size());
         // The ImageData's to_piet function does not clip to the image's size
         // CairoRenderContext is very like druids but with some extra goodies like clip
         if self.fill != FillStrat::Contain {
@@ -363,7 +443,6 @@ impl<T: WithImageData> Widget<T> for ExternalImage<T> {
     }
 }
 
-
 pub struct Painter<T> {
     phantom: PhantomData<T>,
     fill: FillStrat,
@@ -371,7 +450,6 @@ pub struct Painter<T> {
     paint_color: Rgba<u8>,
     transform: Affine,
 }
-
 
 impl<T> Painter<T> {
     pub fn new(color: Rgba<u8>) -> Self {
@@ -394,15 +472,19 @@ impl<T> Painter<T> {
     pub fn set_fill(&mut self, newfil: FillStrat) {
         self.fill = newfil;
     }
-
 }
-
 
 impl<T: WithImageData> Widget<T> for Painter<T> {
     fn event(&mut self, _ctx: &mut EventCtx, event: &Event, data: &mut T, _env: &Env) {
         match event {
             Event::MouseDown(e) => {
-                data.fill_square_with_transform(e.pos.x, e.pos.y, 10, self.paint_color, &self.transform);
+                data.fill_square_with_transform(
+                    e.pos.x,
+                    e.pos.y,
+                    10,
+                    self.paint_color,
+                    &self.transform,
+                );
                 self.painting = true;
             }
             Event::MouseUp(e) => {
@@ -410,7 +492,13 @@ impl<T: WithImageData> Widget<T> for Painter<T> {
             }
             Event::MouseMoved(e) => {
                 if self.painting {
-                    data.fill_square_with_transform(e.pos.x, e.pos.y, 10, self.paint_color, &self.transform);
+                    data.fill_square_with_transform(
+                        e.pos.x,
+                        e.pos.y,
+                        10,
+                        self.paint_color,
+                        &self.transform,
+                    );
                 }
             }
             _ => (),
@@ -445,9 +533,7 @@ impl<T: WithImageData> Widget<T> for Painter<T> {
         // let data_size = data.size();
         // dbg!(paint_ctx_size);
         // dbg!(data_size);
-        let offset_matrix = self
-            .fill
-            .affine_to_fill(paint_ctx.size(), data.size());
+        let offset_matrix = self.fill.affine_to_fill(paint_ctx.size(), data.size());
         self.transform = offset_matrix.inverse();
         // The ImageData's to_piet function does not clip to the image's size
         // CairoRenderContext is very like druids but with some extra goodies like clip

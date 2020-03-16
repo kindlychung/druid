@@ -50,7 +50,7 @@ mod zoom;
 
 #[cfg(feature = "image")]
 #[cfg_attr(docsrs, doc(cfg(feature = "image")))]
-pub use self::image::{Image, ImageData, ExternalImage, ImageDataProvider, WithImageData, Painter};
+pub use self::image::{ExternalImage, Image, ImageData, ImageDataProvider, Painter, WithImageData, TwoLayerRgba};
 pub use align::Align;
 pub use button::Button;
 pub use checkbox::Checkbox;
@@ -72,7 +72,6 @@ pub use sized_box::SizedBox;
 pub use slider::Slider;
 pub use split::Split;
 pub use stack::Stack;
-pub use zoom::Zoom;
 pub use stepper::Stepper;
 #[cfg(feature = "svg")]
 #[cfg_attr(docsrs, doc(cfg(feature = "svg")))]
@@ -81,6 +80,7 @@ pub use switch::Switch;
 pub use textbox::TextBox;
 pub use view_switcher::ViewSwitcher;
 pub use widget_ext::WidgetExt;
+pub use zoom::Zoom;
 
 use std::num::NonZeroU64;
 use std::ops::{Deref, DerefMut};

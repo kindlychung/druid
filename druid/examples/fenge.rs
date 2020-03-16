@@ -1,17 +1,20 @@
+use druid::widget::Align;
 use druid::{
-    widget::{FillStrat, Flex, Image, ImageData, WidgetExt, Stack, Zoom},
+    widget::{FillStrat, Flex, Image, ImageData, Stack, WidgetExt, Zoom},
     AppLauncher, Widget, WindowDesc,
 };
-use druid::widget::Align;
 
 fn ui_builder() -> impl Widget<u8> {
     let png_data = ImageData::from_file("examples/dog.jpg").unwrap();
-    let img0 = Image::new(png_data.clone()).fill_mode(FillStrat::Fill).fix_width(500.).center();
-    let img1= Image::new(png_data.clone()).fill_mode(FillStrat::ScaleDown).fix_width(200.).center();
-    let root = Zoom::new(Stack::new()
-        .with_child(img0)
-        .with_child(img1)
-    );
+    let img0 = Image::new(png_data.clone())
+        .fill_mode(FillStrat::Fill)
+        .fix_width(500.)
+        .center();
+    let img1 = Image::new(png_data.clone())
+        .fill_mode(FillStrat::ScaleDown)
+        .fix_width(200.)
+        .center();
+    let root = Zoom::new(Stack::new().with_child(img0).with_child(img1));
     root
 }
 
@@ -24,5 +27,3 @@ fn main() {
         .launch(data)
         .expect("launch failed");
 }
-
-

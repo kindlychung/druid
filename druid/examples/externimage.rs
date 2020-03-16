@@ -1,6 +1,10 @@
-use druid::{widget::{FillStrat, Flex, Image, ImageData, WidgetExt, Stack, Zoom}, Data, Lens, AppLauncher, Widget, WindowDesc, EventCtx, LifeCycle, PaintCtx, LifeCycleCtx, BoxConstraints, Size, LayoutCtx, Event, Env, UpdateCtx};
-use druid::widget::{Align, ExternalImage, Button, ImageDataProvider, WithImageData, Painter};
-use image::{DynamicImage, GenericImage, ColorType, Rgba, RgbaImage};
+use druid::widget::{Align, Button, ExternalImage, ImageDataProvider, Painter, WithImageData};
+use druid::{
+    widget::{FillStrat, Flex, Image, ImageData, Stack, WidgetExt, Zoom},
+    AppLauncher, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, Lens, LifeCycle,
+    LifeCycleCtx, PaintCtx, Size, UpdateCtx, Widget, WindowDesc,
+};
+use image::{ColorType, DynamicImage, GenericImage, Rgba, RgbaImage};
 use std::sync::Arc;
 
 #[derive(Clone, Data, Lens)]
@@ -47,21 +51,21 @@ impl WithImageData for Toggle {
     }
 
     fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
-        Arc::make_mut(&mut self.data).put_pixel(x, y, pixel)
+        Arc::make_mut(&mut self.data).set_pixel(x, y, pixel)
     }
 }
 
 #[cfg(feature = "image")]
 fn main() {
-    let main_window = WindowDesc::new(ui_builder)
-        .window_size((500., 500.));
+    let main_window = WindowDesc::new(ui_builder).window_size((500., 500.));
     let img_data = image::open("examples/PicWithAlpha.png").unwrap().to_rgba();
     let dog_data = image::open("examples/dog.jpg").unwrap().to_rgba();
     let data = Arc::new(img_data);
     fn ui_builder() -> impl Widget<AppData> {
         Flex::column()
             .with_child(
-                Painter::new(Rgba([33, 55, 55, 5])).lens(AppData::toggle), 1.,
+                Painter::new(Rgba([33, 55, 55, 32])).lens(AppData::toggle),
+                1.,
             )
             .with_child(
                 Button::new("Change image", |ctx, data: &mut Toggle, _env| {
@@ -74,11 +78,19 @@ fn main() {
                     }
                     ctx.request_layout();
                     ctx.request_paint();
-                }).lens(AppData::toggle),
+                })
+                .lens(AppData::toggle),
                 0.,
             )
     }
     AppLauncher::with_window(main_window)
-        .launch(AppData { toggle: Toggle { show_img1: false, data: data.clone(), img0: data.clone(), img1: Arc::new(dog_data) } })
+        .launch(AppData {
+            toggle: Toggle {
+                show_img1: false,
+                data: data.clone(),
+                img0: data.clone(),
+                img1: Arc::new(dog_data),
+            },
+        })
         .expect("launch failed");
 }

@@ -15,7 +15,10 @@
 //! An Image widget.
 //! Please consider using SVG and the SVG wideget as it scales much better.
 
-use crate::{Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget, BoxedWidget, WidgetPod, Point};
+use crate::{
+    Affine, BoxConstraints, BoxedWidget, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle,
+    LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, WidgetPod,
+};
 
 pub struct Zoom<T> {
     child: BoxedWidget<T>,
@@ -35,7 +38,12 @@ impl<T: Data> Widget<T> for Zoom<T> {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut T, _env: &Env) {
         match event {
             Event::Wheel(e) => {
-                if e.mods.ctrl == true && e.mods.shift == false && e.mods.alt == false && e.mods.meta == false && e.delta.y != 0.0 {
+                if e.mods.ctrl == true
+                    && e.mods.shift == false
+                    && e.mods.alt == false
+                    && e.mods.meta == false
+                    && e.delta.y != 0.0
+                {
                     if e.delta.y > 0. {
                         self.scale *= 1.2;
                     } else {
@@ -84,6 +92,3 @@ impl<T: Data> Widget<T> for Zoom<T> {
         self.child.paint_with_offset(paint_ctx, data, env)
     }
 }
-
-
-

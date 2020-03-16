@@ -21,10 +21,11 @@ use std::path::Path;
 
 use image;
 
-use crate::{piet::{ImageFormat, InterpolationMode}, widget::common::FillStrat, Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget};
+use crate::{piet::{ImageFormat, InterpolationMode}, widget::common::FillStrat, Affine, BoxConstraints, Data, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx, Rect, RenderContext, Size, UpdateCtx, Widget, Point};
 use crate::{Lens, LensExt};
 use std::sync::Arc;
 use std::marker::PhantomData;
+use image::{Pixel, Primitive, Rgba, DynamicImage, GenericImageView, RgbaImage, GenericImage};
 
 /// A widget that renders an Image
 pub struct Image {
@@ -61,6 +62,7 @@ impl Widget<u8> for Image {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &u8, _env: &Env) {}
 
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &u8, _data: &u8, _env: &Env) {}
+
 
     fn layout(
         &mut self,
@@ -99,9 +101,9 @@ impl Widget<u8> for Image {
 /// Stored Image data.
 #[derive(Clone)]
 pub struct ImageData {
-    pixels: Vec<u8>,
-    x_pixels: u32,
-    y_pixels: u32,
+    pub pixels: Vec<u8>,
+    pub x_pixels: u32,
+    pub y_pixels: u32,
 }
 
 
@@ -182,20 +184,203 @@ pub trait ImageDataProvider: Data {
     fn img_mut(&mut self) -> &mut ImageData;
 }
 
-pub struct ExternalImage<T> where T: ImageDataProvider {
-    phantom_data: PhantomData<T>,
+impl Data for ImageData {
+    fn same(&self, other: &Self) -> bool {
+        self.pixels == other.pixels && self.x_pixels == other.x_pixels && self.y_pixels == other.y_pixels
+    }
+}
+
+impl ImageDataProvider for ImageData {
+    fn img(&self) -> &ImageData {
+        self
+    }
+    fn img_mut(&mut self) -> &mut ImageData {
+        self
+    }
+}
+
+impl ImageDataProvider for Arc<ImageData> {
+    fn img(&self) -> &ImageData {
+        self.as_ref()
+    }
+
+    fn img_mut(&mut self) -> &mut ImageData {
+        Arc::make_mut(self)
+    }
+}
+
+pub trait WithImageData: Data {
+    fn width(&self) -> u32;
+    fn height(&self) -> u32;
+    fn pixels(&self) -> Vec<u8>;
+    fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>);
+    fn set_pixel_with_transform(&mut self, x: f64, y: f64, pixel: Rgba<u8>, transform: &Affine) {
+        let point = Point{x, y};
+        let point = *transform * point;
+        self.set_pixel(point.x as u32, point.y as u32, pixel);
+    }
+    fn fill_square_with_transform(&mut self, x: f64, y: f64, size: u32, pixel: Rgba<u8>, transform: &Affine) {
+        let point = Point{x, y};
+        let point = *transform * point;
+        self.fill_square(point.x as u32, point.y as u32, size, pixel)
+    }
+    fn fill_square(&mut self, x: u32, y: u32, size: u32, pixel: Rgba<u8>) {
+        let w = self.width();
+        let h = self.height();
+        if size == 1 {
+            self.set_pixel(x, y, pixel)
+        }
+        let xmax = (x + size).min(w);
+        let ymax = (y + size).min(h);
+        for i in x..xmax {
+            for j in y..ymax {
+                self.set_pixel(i, j, pixel);
+            }
+        }
+    }
+    fn size(&self) -> Size {
+        Size { width: self.width() as f64, height: self.height() as f64 }
+    }
+    fn to_piet(&self, offset_matrix: Affine, paint_ctx: &mut PaintCtx) {
+        paint_ctx
+            .with_save(|ctx| {
+                ctx.transform(offset_matrix);
+                let im = ctx
+                    .make_image(
+                        self.width() as usize,
+                        self.height() as usize,
+                        &self.pixels(),
+                        ImageFormat::RgbaSeparate,
+                    )
+                    .unwrap();
+                let rec = Rect::from_origin_size(
+                    (0.0, 0.0),
+                    (self.width() as f64, self.height() as f64),
+                );
+                ctx.draw_image(&im, rec, InterpolationMode::Bilinear);
+                Ok(())
+            })
+            .unwrap();
+    }
+}
+
+impl WithImageData for RgbaImage {
+    fn width(&self) -> u32 {
+        GenericImageView::width(self)
+    }
+
+    fn height(&self) -> u32 {
+        GenericImageView::height(self)
+    }
+
+    fn pixels(&self) -> Vec<u8> {
+        self.to_vec()
+    }
+
+    fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
+        let mut p ;
+        {
+            p = self.get_pixel(x, y);
+        }
+        let mut pixel = pixel;
+        for i in 0..3 {
+            pixel[i] = pixel[i] / 2 + p[i];
+        }
+        self.put_pixel(x, y, pixel)
+    }
+
+
+}
+
+impl Data for RgbaImage {
+    fn same(&self, other: &Self) -> bool {
+        self.width() == other.width() && self.height() == other.height() && self.to_vec() == other.to_vec()
+    }
+}
+
+
+pub struct ExternalImage<T> where T: WithImageData {
+    phantom: PhantomData<T>,
     fill: FillStrat,
 }
 
 
-impl<T: ImageDataProvider> ExternalImage<T> {
-    /// Create an image drawing widget from `ImageData`.
-    ///
-    /// The Image will scale to fit its box constraints.
+impl<T: WithImageData> ExternalImage<T> {
     pub fn new() -> Self {
         ExternalImage {
             fill: FillStrat::default(),
-            phantom_data: PhantomData,
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn with_fill_mode(mut self, mode: FillStrat) -> Self {
+        self.fill = mode;
+        self
+    }
+
+    pub fn set_fill(&mut self, newfil: FillStrat) {
+        self.fill = newfil;
+    }
+}
+
+impl<T: WithImageData> Widget<T> for ExternalImage<T> {
+    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
+
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &T, _env: &Env) {}
+
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &T, data: &T, _env: &Env) {
+        if !old_data.same(data) {
+            ctx.request_paint();
+        }
+    }
+
+    fn layout(
+        &mut self,
+        _layout_ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        data: &T,
+        _env: &Env,
+    ) -> Size {
+        bc.debug_check("ExternalImage");
+        if bc.is_width_bounded() {
+            bc.max()
+        } else {
+            bc.constrain(data.size())
+        }
+    }
+
+    fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &T, _env: &Env) {
+        let offset_matrix = self
+            .fill
+            .affine_to_fill(paint_ctx.size(), data.size());
+        // The ImageData's to_piet function does not clip to the image's size
+        // CairoRenderContext is very like druids but with some extra goodies like clip
+        if self.fill != FillStrat::Contain {
+            let clip_rect = Rect::ZERO.with_size(paint_ctx.size());
+            paint_ctx.clip(clip_rect);
+        }
+        data.to_piet(offset_matrix, paint_ctx);
+    }
+}
+
+
+pub struct Painter<T> {
+    phantom: PhantomData<T>,
+    fill: FillStrat,
+    painting: bool,
+    paint_color: Rgba<u8>,
+    transform: Affine,
+}
+
+
+impl<T> Painter<T> {
+    pub fn new(color: Rgba<u8>) -> Self {
+        Painter {
+            phantom: PhantomData,
+            fill: Default::default(),
+            painting: false,
+            paint_color: color,
+            transform: Affine::default(),
         }
     }
 
@@ -209,14 +394,36 @@ impl<T: ImageDataProvider> ExternalImage<T> {
     pub fn set_fill(&mut self, newfil: FillStrat) {
         self.fill = newfil;
     }
+
 }
 
-impl<T: ImageDataProvider> Widget<T> for ExternalImage<T> {
-    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: & T, _env: &Env) {}
+impl<T: WithImageData> Widget<T> for Painter<T> {
+    fn event(&mut self, _ctx: &mut EventCtx, event: &Event, data: &mut T, _env: &Env) {
+        match event {
+            Event::MouseDown(e) => {
+                data.fill_square_with_transform(e.pos.x, e.pos.y, 10, self.paint_color, &self.transform);
+                self.painting = true;
+            }
+            Event::MouseUp(e) => {
+                self.painting = false;
+            }
+            Event::MouseMoved(e) => {
+                if self.painting {
+                    data.fill_square_with_transform(e.pos.x, e.pos.y, 10, self.paint_color, &self.transform);
+                }
+            }
+            _ => (),
+        }
+    }
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &T, _env: &Env) {}
+
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &T, data: &T, _env: &Env) {
+        if !old_data.same(data) {
+            ctx.request_paint();
+        }
+    }
 
     fn layout(
         &mut self,
@@ -229,20 +436,25 @@ impl<T: ImageDataProvider> Widget<T> for ExternalImage<T> {
         if bc.is_width_bounded() {
             bc.max()
         } else {
-            bc.constrain(data.img().get_size())
+            bc.constrain(data.size())
         }
     }
 
     fn paint(&mut self, paint_ctx: &mut PaintCtx, data: &T, _env: &Env) {
+        // let paint_ctx_size: Size = paint_ctx.size();
+        // let data_size = data.size();
+        // dbg!(paint_ctx_size);
+        // dbg!(data_size);
         let offset_matrix = self
             .fill
-            .affine_to_fill(paint_ctx.size(), data.img().get_size());
+            .affine_to_fill(paint_ctx.size(), data.size());
+        self.transform = offset_matrix.inverse();
         // The ImageData's to_piet function does not clip to the image's size
         // CairoRenderContext is very like druids but with some extra goodies like clip
         if self.fill != FillStrat::Contain {
             let clip_rect = Rect::ZERO.with_size(paint_ctx.size());
             paint_ctx.clip(clip_rect);
         }
-        data.img().to_piet(offset_matrix, paint_ctx);
+        data.to_piet(offset_matrix, paint_ctx);
     }
 }

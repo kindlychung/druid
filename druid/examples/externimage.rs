@@ -1,6 +1,6 @@
 use druid::{widget::{FillStrat, Flex, Image, ImageData, WidgetExt, Stack, Zoom}, Data, Lens, AppLauncher, Widget, WindowDesc, EventCtx, LifeCycle, PaintCtx, LifeCycleCtx, BoxConstraints, Size, LayoutCtx, Event, Env, UpdateCtx};
-use druid::widget::{Align, ExternalImage, Button, ImageDataProvider};
-use image::{DynamicImage, GenericImage, ColorType, Rgba};
+use druid::widget::{Align, ExternalImage, Button, ImageDataProvider, WithImageData, Painter};
+use image::{DynamicImage, GenericImage, ColorType, Rgba, RgbaImage};
 use std::sync::Arc;
 
 #[derive(Clone, Data, Lens)]
@@ -11,9 +11,9 @@ struct AppData {
 #[derive(Clone, Data, Lens)]
 struct Toggle {
     show_img1: bool,
-    data: Arc<ImageData>,
-    img0: Arc<ImageData>,
-    img1: Arc<ImageData>,
+    data: Arc<RgbaImage>,
+    img0: Arc<RgbaImage>,
+    img1: Arc<RgbaImage>,
 }
 
 impl Toggle {
@@ -33,26 +33,35 @@ impl Toggle {
     }
 }
 
-impl ImageDataProvider for Toggle {
-    fn img(&self) -> &ImageData {
-        self.data.as_ref()
+impl WithImageData for Toggle {
+    fn width(&self) -> u32 {
+        WithImageData::width(self.data.as_ref())
     }
 
-    fn img_mut(&mut self) -> &mut ImageData {
-        Arc::make_mut(&mut self.data)
+    fn height(&self) -> u32 {
+        WithImageData::height(self.data.as_ref())
+    }
+
+    fn pixels(&self) -> Vec<u8> {
+        WithImageData::pixels(self.data.as_ref())
+    }
+
+    fn set_pixel(&mut self, x: u32, y: u32, pixel: Rgba<u8>) {
+        Arc::make_mut(&mut self.data).put_pixel(x, y, pixel)
     }
 }
 
 #[cfg(feature = "image")]
 fn main() {
-    let main_window = WindowDesc::new(ui_builder);
-    let img_data = ImageData::from_file("examples/PicWithAlpha.png").unwrap();
-    let dog_data = ImageData::from_file("examples/dog.jpg").unwrap();
+    let main_window = WindowDesc::new(ui_builder)
+        .window_size((500., 500.));
+    let img_data = image::open("examples/PicWithAlpha.png").unwrap().to_rgba();
+    let dog_data = image::open("examples/dog.jpg").unwrap().to_rgba();
     let data = Arc::new(img_data);
     fn ui_builder() -> impl Widget<AppData> {
         Flex::column()
             .with_child(
-                ExternalImage::new().lens(AppData::toggle), 1.,
+                Painter::new(Rgba([33, 55, 55, 5])).lens(AppData::toggle), 1.,
             )
             .with_child(
                 Button::new("Change image", |ctx, data: &mut Toggle, _env| {

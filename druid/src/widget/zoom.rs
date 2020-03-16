@@ -44,7 +44,10 @@ impl<T: Data> Widget<T> for Zoom<T> {
                     ctx.request_paint();
                 }
             }
-            _ => ()
+            _ => {
+                self.child.event(ctx, event, _data, _env);
+                ctx.request_paint();
+            }
         }
     }
 

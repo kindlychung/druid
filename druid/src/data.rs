@@ -368,3 +368,12 @@ impl Data for piet::Color {
         self.as_rgba_u32().same(&other.as_rgba_u32())
     }
 }
+
+
+#[cfg(feature = "image")]
+#[cfg_attr(docsrs, doc(cfg(feature = "image")))]
+impl Data for image::Rgba<u8> {
+    fn same(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}

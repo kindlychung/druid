@@ -20,7 +20,6 @@ use std::error::Error;
 use std::marker::PhantomData;
 use std::path::Path;
 
-use image;
 
 use crate::{
     piet::{ImageFormat, InterpolationMode},
@@ -211,3 +210,4 @@ impl Default for ImageData {
         ImageData::empty()
     }
 }
+

@@ -110,6 +110,10 @@ use druid_shell as shell;
 #[doc(inline)]
 pub use druid_shell::{kurbo, piet};
 
+
+#[cfg(feature = "image")]
+pub use image;
+
 mod app;
 mod app_delegate;
 mod bloom;

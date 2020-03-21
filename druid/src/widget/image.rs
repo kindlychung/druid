@@ -19,7 +19,6 @@ use std::convert::AsRef;
 use std::error::Error;
 use std::path::Path;
 
-use image;
 
 use crate::{
     piet::{ImageFormat, InterpolationMode},
@@ -212,3 +211,4 @@ impl Default for ImageData {
         ImageData::empty()
     }
 }
+

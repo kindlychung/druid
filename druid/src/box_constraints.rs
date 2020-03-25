@@ -29,7 +29,7 @@ use log;
 /// Further, a container widget should compute appropriate constraints
 /// for each of its child widgets, and pass those down when recursing.
 ///
-/// [`layout`]: widget/trait.Widget.html#tymethod.layout
+/// [`layout`]: trait.Widget.html#tymethod.layout
 /// [Flutter BoxConstraints]: https://api.flutter.dev/flutter/rendering/BoxConstraints-class.html
 #[derive(Clone, Copy, Debug)]
 pub struct BoxConstraints {
@@ -65,9 +65,14 @@ impl BoxConstraints {
         }
     }
 
-    /// Clamp a given size so that fits within the constraints.
+    /// Clamp a given size so that it fits within the constraints.
+    ///
+    /// The given size is also [rounded away from zero],
+    /// so that the layout is aligned to pixels.
+    ///
+    /// [rounded away from zero]: struct.Size.html#method.expand
     pub fn constrain(&self, size: impl Into<Size>) -> Size {
-        size.into().clamp(self.min, self.max)
+        size.into().expand().clamp(self.min, self.max)
     }
 
     /// Returns the max size of these constraints.
@@ -101,6 +106,14 @@ impl BoxConstraints {
         {
             log::warn!("Bad BoxConstraints passed to {}:", name);
             log::warn!("{:?}", self);
+        }
+
+        if self.min.width.is_infinite() {
+            log::warn!("Infinite minimum width constraint passed to {}:", name);
+        }
+
+        if self.min.height.is_infinite() {
+            log::warn!("Infinite minimum height constraint passed to {}:", name);
         }
     }
 

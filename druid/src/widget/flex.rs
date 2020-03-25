@@ -128,14 +128,14 @@ use crate::{
 /// my_row.add_flex_child(Slider::new(), 1.0);
 /// ```
 ///
-/// [`layout`]: trait.Widget.html#tymethod.layout
+/// [`layout`]: ../trait.Widget.html#tymethod.layout
 /// [`MainAxisAlignment`]: enum.MainAxisAlignment.html
 /// [`CrossAxisAlignment`]: enum.CrossAxisAlignment.html
 /// [`must_fill_main_axis`]: struct.Flex.html#method.must_fill_main_axis
 /// [`FlexParams`]: struct.FlexParams.html
-/// [`WidgetExt`]: trait.WidgetExt.html
-/// [`expand_height`]: trait.WidgetExt.html#method.expand_height
-/// [`expand_width`]: trait.WidgetExt.html#method.expand_width
+/// [`WidgetExt`]: ../trait.WidgetExt.html
+/// [`expand_height`]: ../trait.WidgetExt.html#method.expand_height
+/// [`expand_width`]: ../trait.WidgetExt.html#method.expand_width
 /// [`TextBox`]: struct.TextBox.html
 /// [`SizedBox`]: struct.SizedBox.html
 pub struct Flex<T> {
@@ -204,7 +204,7 @@ pub(crate) enum Axis {
 ///
 /// If a widget is smaller than the container on the minor axis, this determines
 /// where it is positioned.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Data)]
 pub enum CrossAxisAlignment {
     /// Top or leading.
     ///
@@ -224,7 +224,7 @@ pub enum CrossAxisAlignment {
 ///
 /// If there is surplus space on the main axis after laying out children, this
 /// enum represents how children are laid out in this space.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Data)]
 pub enum MainAxisAlignment {
     /// Top or leading.
     ///
@@ -552,6 +552,15 @@ impl<T: Data> Widget<T> for Flex<T> {
                     .direction
                     .constraints(&loosened_bc, 0., std::f64::INFINITY);
                 let child_size = child.widget.layout(layout_ctx, &child_bc, data, env);
+
+                if child_size.width.is_infinite() {
+                    log::warn!("A non-Flex child has an infinite width.");
+                }
+
+                if child_size.height.is_infinite() {
+                    log::warn!("A non-Flex child has an infinite height.");
+                }
+
                 minor = minor.max(self.direction.minor(child_size));
                 total_non_flex += self.direction.major(child_size);
                 // Stash size.
@@ -573,6 +582,7 @@ impl<T: Data> Widget<T> for Flex<T> {
 
                 let child_bc = self.direction.constraints(&loosened_bc, min_major, major);
                 let child_size = child.widget.layout(layout_ctx, &child_bc, data, env);
+
                 flex_used += self.direction.major(child_size);
                 minor = minor.max(self.direction.minor(child_size));
                 // Stash size.
@@ -697,20 +707,6 @@ impl Spacing {
     fn assert_finite(self) -> Self {
         assert!(self.pre.is_finite() && self.between.is_finite() && self.post.is_finite());
         self
-    }
-}
-
-// we have these impls mostly for our 'flex' example, but I could imagine
-// them being broadly useful?
-impl Data for MainAxisAlignment {
-    fn same(&self, other: &MainAxisAlignment) -> bool {
-        self == other
-    }
-}
-
-impl Data for CrossAxisAlignment {
-    fn same(&self, other: &CrossAxisAlignment) -> bool {
-        self == other
     }
 }
 

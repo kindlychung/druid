@@ -423,6 +423,11 @@ impl WindowBuilder {
         }));
 
         vbox.pack_end(&drawing_area, true, true, 0);
+        drawing_area.realize();
+        drawing_area
+            .get_window()
+            .expect("realize didn't create window")
+            .set_event_compression(false);
 
         win_state
             .handler
@@ -647,7 +652,7 @@ impl IdleHandle {
         if let Some(state) = self.state.upgrade() {
             if queue.is_empty() {
                 queue.push(IdleKind::Callback(Box::new(callback)));
-                threads_add_idle(move || run_idle(&state));
+                glib::idle_add(move || run_idle(&state));
             } else {
                 queue.push(IdleKind::Callback(Box::new(callback)));
             }
@@ -659,7 +664,7 @@ impl IdleHandle {
         if let Some(state) = self.state.upgrade() {
             if queue.is_empty() {
                 queue.push(IdleKind::Token(token));
-                threads_add_idle(move || run_idle(&state));
+                glib::idle_add(move || run_idle(&state));
             } else {
                 queue.push(IdleKind::Token(token));
             }
@@ -667,25 +672,7 @@ impl IdleHandle {
     }
 }
 
-// FIXME: delete when https://github.com/gtk-rs/gdk/issues/304 is resolved
-// this is currently broken in the gdk crate, because their codegen is inserting
-// assert_main_thread even though this function is explicitly threadsafe.
-pub fn threads_add_idle<P: Fn() -> bool + Send + Sync + 'static>(function: P) -> u32 {
-    use glib::translate::ToGlib;
-    let function_data: Box<P> = Box::new(function);
-    unsafe extern "C" fn function_func<P: Fn() -> bool + Send + Sync + 'static>(
-        user_data: glib_sys::gpointer,
-    ) -> glib_sys::gboolean {
-        let callback: &P = &*(user_data as *mut _);
-        let res = (*callback)();
-        res.to_glib()
-    }
-    let function = Some(function_func::<P> as _);
-    let super_callback0: Box<P> = function_data;
-    unsafe { gdk_sys::gdk_threads_add_idle(function, Box::into_raw(super_callback0) as *mut _) }
-}
-
-fn run_idle(state: &Arc<WindowState>) -> bool {
+fn run_idle(state: &Arc<WindowState>) -> glib::source::Continue {
     assert_main_thread();
     let mut handler = state.handler.borrow_mut();
 
@@ -697,7 +684,7 @@ fn run_idle(state: &Arc<WindowState>) -> bool {
             IdleKind::Token(it) => handler.idle(it),
         }
     }
-    false
+    glib::source::Continue(false)
 }
 
 fn make_gdk_cursor(cursor: &Cursor, gdk_window: &gdk::Window) -> Option<gdk::Cursor> {

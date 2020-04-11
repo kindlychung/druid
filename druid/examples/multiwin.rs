@@ -44,7 +44,9 @@ pub fn main() {
             LocalizedString::new("multiwin-demo-window-title").with_placeholder("Many windows!"),
         );
     AppLauncher::with_window(main_window)
-        .delegate(Delegate)
+        .delegate(Delegate {
+            windows: Vec::new(),
+        })
         .launch(State::default())
         .expect("launch failed");
 }
@@ -66,72 +68,36 @@ fn ui_builder() -> impl Widget<State> {
     let text = LocalizedString::new("hello-counter")
         .with_arg("count", |data: &State, _env| data.menu_count.into());
     let label = Label::new(text);
-    let inc_button = Button::<State>::new("Add menu item").on_click(|ctx, data, _env| {
+    let inc_button = Button::<State>::new("Add menu item", |ctx, data, _env| {
         data.menu_count += 1;
         ctx.set_menu(make_menu::<State>(data));
     });
-    let dec_button = Button::<State>::new("Remove menu item").on_click(|ctx, data, _env| {
+    let dec_button = Button::<State>::new("Remove menu item", |ctx, data, _env| {
         data.menu_count = data.menu_count.saturating_sub(1);
         ctx.set_menu(make_menu::<State>(data));
     });
 
+    let inc_button1 = Button::<State>::new("Add menu item via delegate", |ctx, data, _env| {
+        data.menu_count += 1;
+        ctx.submit_command(MENU_INCREMENT_ACTION, ctx.window_id())
+    });
+    let dec_button1 = Button::<State>::new("Remove menu item via delegate", |ctx, data, _env| {
+        data.menu_count = data.menu_count.saturating_sub(1);
+        ctx.submit_command(MENU_DECREMENT_ACTION, ctx.window_id())
+    });
+
     let mut col = Flex::column();
     col.add_flex_child(Align::centered(Padding::new(5.0, label)), 1.0);
-    let mut row = Flex::row();
-    row.add_child(Padding::new(5.0, inc_button));
-    row.add_child(Padding::new(5.0, dec_button));
-    col.add_flex_child(Align::centered(row), 1.0);
-    Glow::new(col)
+    col.add_child(Padding::new(5.0, inc_button));
+    col.add_child(Padding::new(5.0, dec_button));
+    col.add_child(Padding::new(5.0, inc_button1));
+    col.add_child(Padding::new(5.0, dec_button1));
+    col
 }
 
-struct Glow<W> {
-    inner: W,
+struct Delegate {
+    windows: Vec<WindowId>,
 }
-
-impl<W> Glow<W> {
-    pub fn new(inner: W) -> Glow<W> {
-        Glow { inner }
-    }
-}
-
-impl<W: Widget<State>> Widget<State> for Glow<W> {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut State, env: &Env) {
-        self.inner.event(ctx, event, data, env);
-    }
-
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &State, env: &Env) {
-        if let LifeCycle::HotChanged(_) = event {
-            ctx.request_paint();
-        }
-        self.inner.lifecycle(ctx, event, data, env);
-    }
-
-    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &State, data: &State, env: &Env) {
-        if old_data.glow_hot != data.glow_hot {
-            ctx.request_paint();
-        }
-        self.inner.update(ctx, old_data, data, env);
-    }
-
-    fn layout(
-        &mut self,
-        ctx: &mut LayoutCtx,
-        bc: &BoxConstraints,
-        data: &State,
-        env: &Env,
-    ) -> Size {
-        self.inner.layout(ctx, bc, data, env)
-    }
-
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &State, env: &Env) {
-        if data.glow_hot && ctx.is_hot() {
-            BackgroundBrush::Color(Color::rgb8(200, 55, 55)).paint(ctx, data, env);
-        }
-        self.inner.paint(ctx, data, env);
-    }
-}
-
-struct Delegate;
 
 impl AppDelegate<State> for Delegate {
     fn event(
@@ -161,8 +127,8 @@ impl AppDelegate<State> for Delegate {
         data: &mut State,
         _env: &Env,
     ) -> bool {
-        match (target, &cmd.selector) {
-            (_, &sys_cmds::NEW_FILE) => {
+        match &cmd.selector {
+            &sys_cmds::NEW_FILE => {
                 let new_win = WindowDesc::new(ui_builder)
                     .menu(make_menu(data))
                     .window_size((data.selected as f64 * 100.0 + 300.0, 500.0));
@@ -170,27 +136,31 @@ impl AppDelegate<State> for Delegate {
                 ctx.submit_command(command, Target::Global);
                 false
             }
-            (Target::Window(id), &MENU_COUNT_ACTION) => {
+            &MENU_COUNT_ACTION => {
                 data.selected = *cmd.get_object().unwrap();
                 let menu = make_menu::<State>(data);
                 let cmd = Command::new(druid::commands::SET_MENU, menu);
-                ctx.submit_command(cmd, *id);
+                ctx.submit_command(cmd, self.windows[0].clone());
                 false
             }
             // wouldn't it be nice if a menu (like a button) could just mutate state
             // directly if desired?
-            (Target::Window(id), &MENU_INCREMENT_ACTION) => {
-                data.menu_count += 1;
+            &MENU_INCREMENT_ACTION => {
+                data.menu_count = data.menu_count + 1;
                 let menu = make_menu::<State>(data);
                 let cmd = Command::new(druid::commands::SET_MENU, menu);
-                ctx.submit_command(cmd, *id);
+                for id in &self.windows {
+                    ctx.submit_command(cmd.clone(), id.clone());
+                }
                 false
             }
-            (Target::Window(id), &MENU_DECREMENT_ACTION) => {
+            &MENU_DECREMENT_ACTION => {
                 data.menu_count = data.menu_count.saturating_sub(1);
                 let menu = make_menu::<State>(data);
                 let cmd = Command::new(druid::commands::SET_MENU, menu);
-                ctx.submit_command(cmd, *id);
+                for id in &self.windows {
+                    ctx.submit_command(cmd.clone(), id.clone());
+                }
                 false
             }
             (_, &MENU_SWITCH_GLOW_ACTION) => {
@@ -208,7 +178,8 @@ impl AppDelegate<State> for Delegate {
         _env: &Env,
         _ctx: &mut DelegateCtx,
     ) {
-        info!("Window added, id: {:?}", id);
+        self.windows.push(id);
+        dbg!(&self.windows);
     }
     fn window_removed(
         &mut self,
@@ -217,7 +188,11 @@ impl AppDelegate<State> for Delegate {
         _env: &Env,
         _ctx: &mut DelegateCtx,
     ) {
-        info!("Window removed, id: {:?}", id);
+        let id_ref = &id;
+        if let Some(pos) = self.windows.iter().position(|x| *x == *id_ref) {
+            self.windows.remove(pos);
+        }
+        dbg!(&self.windows);
     }
 }
 
@@ -235,7 +210,7 @@ fn make_menu<T: Data>(state: &State) -> MenuDesc<T> {
     if state.menu_count != 0 {
         base = base.append(
             MenuDesc::new(LocalizedString::new("Custom")).append_iter(|| {
-                (1..state.menu_count + 1).map(|i| {
+                (0..state.menu_count).map(|i| {
                     MenuItem::new(
                         LocalizedString::new("hello-counter")
                             .with_arg("count", move |_, _| i.into()),

@@ -68,20 +68,20 @@ fn ui_builder() -> impl Widget<State> {
     let text = LocalizedString::new("hello-counter")
         .with_arg("count", |data: &State, _env| data.menu_count.into());
     let label = Label::new(text);
-    let inc_button = Button::<State>::new("Add menu item", |ctx, data, _env| {
+    let inc_button = Button::<State>::new("Add menu item").on_click( |ctx, data, _env| {
         data.menu_count += 1;
         ctx.set_menu(make_menu::<State>(data));
     });
-    let dec_button = Button::<State>::new("Remove menu item", |ctx, data, _env| {
+    let dec_button = Button::<State>::new("Remove menu item").on_click( |ctx, data, _env| {
         data.menu_count = data.menu_count.saturating_sub(1);
         ctx.set_menu(make_menu::<State>(data));
     });
 
-    let inc_button1 = Button::<State>::new("Add menu item via delegate", |ctx, data, _env| {
+    let inc_button1 = Button::<State>::new("Add menu item via delegate").on_click( |ctx, data, _env| {
         data.menu_count += 1;
         ctx.submit_command(MENU_INCREMENT_ACTION, ctx.window_id())
     });
-    let dec_button1 = Button::<State>::new("Remove menu item via delegate", |ctx, data, _env| {
+    let dec_button1 = Button::<State>::new("Remove menu item via delegate").on_click( |ctx, data, _env| {
         data.menu_count = data.menu_count.saturating_sub(1);
         ctx.submit_command(MENU_DECREMENT_ACTION, ctx.window_id())
     });

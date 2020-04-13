@@ -79,21 +79,17 @@ impl<T: Data> ListIter<T> for Arc<Vec<T>> {
     }
 
     fn for_each_mut(&mut self, mut cb: impl FnMut(&mut T, usize)) {
-        let mut new_data = Vec::with_capacity(self.data_len());
-        let mut any_changed = false;
-
+        let mut to_update: Vec<(usize, T)> = Vec::with_capacity(100);
         for (i, item) in self.iter().enumerate() {
             let mut d = item.to_owned();
             cb(&mut d, i);
-
-            if !any_changed && !item.same(&d) {
-                any_changed = true;
+            if !item.same(&d) {
+                to_update.push((i, d))
             }
-            new_data.push(d);
         }
-
-        if any_changed {
-            *self = Arc::new(new_data);
+        let mut vec_ref = Arc::make_mut(self);
+        for (i, d) in to_update {
+            vec_ref[i] =  d;
         }
     }
 

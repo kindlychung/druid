@@ -87,6 +87,7 @@ impl<T: Data> Harness<'_, T> {
             window_size: DEFAULT_SIZE,
         };
         f(&mut harness);
+        harness.piet.finish().expect("piet finish failed");
     }
 
     /// Set the size without sending a resize event; intended to be used
@@ -121,7 +122,10 @@ impl<T: Data> Harness<'_, T> {
     pub(crate) fn try_get_state(&mut self, widget: WidgetId) -> Option<BaseState> {
         let cell = StateCell::default();
         let state_cell = cell.clone();
-        self.lifecycle(LifeCycle::DebugRequestState { widget, state_cell });
+        self.lifecycle(LifeCycle::Internal(InternalLifeCycle::DebugRequestState {
+            widget,
+            state_cell,
+        }));
         cell.take()
     }
 
@@ -130,13 +134,15 @@ impl<T: Data> Harness<'_, T> {
     /// The provided closure will be called on each widget.
     pub(crate) fn inspect_state(&mut self, f: impl Fn(&BaseState) + 'static) {
         let checkfn = StateCheckFn::new(f);
-        self.lifecycle(LifeCycle::DebugInspectState(checkfn))
+        self.lifecycle(LifeCycle::Internal(InternalLifeCycle::DebugInspectState(
+            checkfn,
+        )))
     }
 
     /// Send a command to a target.
     pub fn submit_command(&mut self, cmd: impl Into<Command>, target: impl Into<Option<Target>>) {
         let target = target.into().unwrap_or_else(|| self.inner.window.id.into());
-        let event = Event::TargetedCommand(target, cmd.into());
+        let event = Event::Internal(InternalEvent::TargetedCommand(target, cmd.into()));
         self.event(event);
     }
 
@@ -144,7 +150,7 @@ impl<T: Data> Harness<'_, T> {
     // should we do this automatically? Also these will change regularly?
     pub fn send_initial_events(&mut self) {
         self.event(Event::WindowConnected);
-        self.event(Event::Size(self.window_size));
+        self.event(Event::WindowSize(self.window_size));
     }
 
     /// Send an event to the widget.
@@ -163,7 +169,9 @@ impl<T: Data> Harness<'_, T> {
         loop {
             let cmd = self.inner.cmds.pop_front();
             match cmd {
-                Some((target, cmd)) => self.event(Event::TargetedCommand(target, cmd)),
+                Some((target, cmd)) => {
+                    self.event(Event::Internal(InternalEvent::TargetedCommand(target, cmd)))
+                }
                 None => break,
             }
         }
@@ -197,15 +205,16 @@ impl<T: Data> Inner<T> {
 
     fn lifecycle(&mut self, event: LifeCycle) {
         self.window
-            .lifecycle(&mut self.cmds, &event, &self.data, &self.env);
+            .lifecycle(&mut self.cmds, &event, &self.data, &self.env, false);
     }
 
     fn update(&mut self) {
-        self.window.update(&self.data, &self.env);
+        self.window.update(&mut self.cmds, &self.data, &self.env);
     }
 
     fn layout(&mut self, piet: &mut Piet) {
-        self.window.just_layout(piet, &self.data, &self.env);
+        self.window
+            .just_layout(piet, &mut self.cmds, &self.data, &self.env);
     }
 
     #[allow(dead_code)]

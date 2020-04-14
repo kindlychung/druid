@@ -23,8 +23,8 @@ use crate::core::{BaseState, CommandQueue, FocusChange};
 use crate::piet::Piet;
 use crate::piet::RenderContext;
 use crate::{
-    Affine, Command, Cursor, Insets, Rect, Size, Target, Text, TimerToken, WidgetId, WindowHandle,
-    WindowId,
+    Affine, Command, Cursor, Insets, Point, Rect, Size, Target, Text, TimerToken, WidgetId,
+    WindowHandle, WindowId,
 };
 
 /// A mutable context provided to event handling methods of widgets.
@@ -85,9 +85,11 @@ pub struct UpdateCtx<'a> {
 /// creating text layout objects, which are likely to be useful
 /// during widget layout.
 pub struct LayoutCtx<'a, 'b: 'a> {
+    pub(crate) command_queue: &'a mut CommandQueue,
+    pub(crate) base_state: &'a mut BaseState,
     pub(crate) text_factory: &'a mut Text<'b>,
-    pub(crate) paint_insets: Insets,
     pub(crate) window_id: WindowId,
+    pub(crate) mouse_pos: Option<Point>,
 }
 
 /// Z-order paint operations with transformations.
@@ -270,12 +272,7 @@ impl<'a> EventCtx<'a> {
     ///
     /// [`is_focused`]: struct.EventCtx.html#method.is_focused
     pub fn has_focus(&self) -> bool {
-        // The bloom filter we're checking can return false positives.
-        let is_child = self
-            .focus_widget
-            .map(|id| self.base_state.children.may_contain(&id))
-            .unwrap_or(false);
-        is_child || self.focus_widget == Some(self.widget_id())
+        self.base_state.has_focus
     }
 
     /// Request keyboard focus.
@@ -556,7 +553,7 @@ impl<'a, 'b> LayoutCtx<'a, 'b> {
     /// [`Insets`]: struct.Insets.html
     /// [`WidgetPod::paint_insets`]: struct.WidgetPod.html#method.paint_insets
     pub fn set_paint_insets(&mut self, insets: impl Into<Insets>) {
-        self.paint_insets = insets.into().nonnegative();
+        self.base_state.paint_insets = insets.into().nonnegative();
     }
 }
 
@@ -613,12 +610,7 @@ impl<'a, 'b: 'a> PaintCtx<'a, 'b> {
     /// [`is_focused`]: #method.is_focused
     /// [`EventCtx::is_focused`]: struct.EventCtx.html#method.is_focused
     pub fn has_focus(&self) -> bool {
-        // The bloom filter we're checking can return false positives.
-        let is_child = self
-            .focus_widget
-            .map(|id| self.base_state.children.may_contain(&id))
-            .unwrap_or(false);
-        is_child || self.focus_widget == Some(self.widget_id())
+        self.base_state.has_focus
     }
 
     /// Returns the currently visible [`Region`].

@@ -91,93 +91,90 @@ impl Widget<AppData> for SunflowerWidget {
 
 fn make_widget() -> impl Widget<AppData> {
     Flex::column()
-        .with_child(SunflowerWidget {}, 1.0)
-        .with_child(
+        .with_flex_child(SunflowerWidget {}, 1.)
+        .with_flex_child(
             Flex::row()
                 .with_child(
                     // buttons on the left
                     Flex::column()
-                        .with_child(Label::new("Angle factor shortcuts").padding(10.), 0.)
+                        .with_child(Label::new("Angle factor shortcuts").padding(10.))
                         .with_child(
-                            Flex::row().with_child(
-                                Button::new("Use SQRT2", |_ctx, data: &mut f64, _: &Env| {
-                                    *data = TWO_SQRT_INV;
-                                })
-                                .lens(AppData::angle_factor)
-                                .padding((5., 5.)),
+                            Flex::row().with_flex_child(
+                                Button::new("Use SQRT2")
+                                    .on_click(|_ctx, data: &mut f64, _: &Env| {
+                                        *data = TWO_SQRT_INV;
+                                    })
+                                    .lens(AppData::angle_factor)
+                                    .padding((5., 5.)),
                                 1.,
                             ),
-                            0.0,
                         )
                         .with_child(
-                            Flex::row().with_child(
-                                Button::new("Use SQRT3", |_ctx, data: &mut f64, _: &Env| {
-                                    *data = THREE_SQRT_INV;
-                                })
-                                .lens(AppData::angle_factor)
-                                .padding((5., 5.)),
+                            Flex::row().with_flex_child(
+                                Button::new("Use SQRT3")
+                                    .on_click(|_ctx, data: &mut f64, _: &Env| {
+                                        *data = THREE_SQRT_INV;
+                                    })
+                                    .lens(AppData::angle_factor)
+                                    .padding((5., 5.)),
                                 1.,
                             ),
-                            0.0,
                         )
                         .with_child(
-                            Flex::row().with_child(
-                                Button::new("Use e", |_ctx, data: &mut f64, _: &Env| {
-                                    *data = E_INV;
-                                })
-                                .lens(AppData::angle_factor)
-                                .padding((5., 5.)),
+                            Flex::row().with_flex_child(
+                                Button::new("Use e")
+                                    .on_click(|_ctx, data: &mut f64, _: &Env| {
+                                        *data = E_INV;
+                                    })
+                                    .lens(AppData::angle_factor)
+                                    .padding((5., 5.)),
                                 1.,
                             ),
-                            0.0,
                         )
                         .with_child(
-                            Flex::row().with_child(
-                                Button::new("Use golden ratio", |_ctx, data: &mut f64, _: &Env| {
-                                    *data = PHI_INV;
-                                })
-                                .lens(AppData::angle_factor)
-                                .padding((5., 5.)),
+                            Flex::row().with_flex_child(
+                                Button::new("Use golden ratio")
+                                    .on_click(|_ctx, data: &mut f64, _: &Env| {
+                                        *data = PHI_INV;
+                                    })
+                                    .lens(AppData::angle_factor)
+                                    .padding((5., 5.)),
                                 1.,
                             ),
-                            0.0,
                         )
                         .padding((10., 3.))
                         .fix_width(200.),
-                    0.,
                 )
-                .with_child(
+                .with_flex_child(
                     // spinners
                     Flex::column()
-                        .with_child(Label::new("Parameters").padding(10.), 0.)
+                        .with_flex_child(Label::new("Parameters").padding(10.), 0.1)
                         .with_child(
                             Flex::row()
-                                .with_child(Label::new("Angle factor"), 1.)
+                                .with_flex_child(Label::new("Angle factor"), 1.)
                                 .with_child(
                                     TextBox::new()
                                         .with_placeholder(DEFAULT_ANGLE_FACTOR.to_string())
                                         .parse()
                                         .lens(AppData::angle_factor.map(
                                             |x| Some(*x),
-                                            |x, y| *x = y.unwrap_or(DEFAULT_ANGLE_FACTOR),
-                                        )),
-                                    2.0,
+                                            |x, y| *x = (y.unwrap_or(DEFAULT_ANGLE_FACTOR) * 10000.).round() / 10000.,
+                                        ))
+                                        .fix_width(100.),
                                 )
                                 .with_child(
-                                    Stepper::new()
-                                        .min(0.)
-                                        .max(1.)
-                                        .step(0.00001)
-                                        .lens(AppData::angle_factor),
-                                    0.,
+                                    Stepper::new().with_range(0., 1.).with_step(0.0001)
+                                    .lens(
+                                        AppData::angle_factor
+                                            .map(|x| (x * 10000.).round() / 10000., |x, y| *x = y),
+                                    ),
                                 )
                                 .padding(5.),
-                            0.,
                         )
                         .with_child(
                             Flex::row()
-                                .with_child(Label::new("Seed number"), 1.)
-                                .with_child(
+                                .with_flex_child(Label::new("Seed number"), 1.)
+                                .with_flex_child(
                                     TextBox::new()
                                         .with_placeholder(DEFAULT_N_SEEDS.to_string())
                                         .parse()
@@ -189,19 +186,16 @@ fn make_widget() -> impl Widget<AppData> {
                                 )
                                 .with_child(
                                     Stepper::new()
-                                        .min(100.)
-                                        .max(5000.)
-                                        .step(50.)
+                                        .with_range(100., 5000.)
+                                        .with_step(50.)
                                         .lens(AppData::n_seeds),
-                                    0.,
                                 )
                                 .padding(5.),
-                            0.,
                         )
-                        .with_child(
+                        .with_flex_child(
                             Flex::row()
-                                .with_child(Label::new("Radius scale"), 1.)
-                                .with_child(
+                                .with_flex_child(Label::new("Radius scale"), 1.)
+                                .with_flex_child(
                                     TextBox::new()
                                         .with_placeholder(DEFAULT_RADIUS_SCALE.to_string())
                                         .parse()
@@ -211,31 +205,30 @@ fn make_widget() -> impl Widget<AppData> {
                                         )),
                                     2.0,
                                 )
-                                .with_child(
+                                .with_flex_child(
                                     Stepper::new()
-                                        .min(3.)
-                                        .max(10.)
-                                        .step(0.1)
+                                        .with_range(3.0, 10.)
+                                        .with_step(0.1)
                                         .lens(AppData::scale),
-                                    0.,
+                                    0.1,
                                 )
                                 .padding(5.),
-                            0.,
+                            0.1,
                         )
                         .padding((10., 3.)),
                     3.,
                 )
                 .cross_axis_alignment(CrossAxisAlignment::Start),
-            0.,
+                0.5,
         )
         .cross_axis_alignment(CrossAxisAlignment::Center)
 }
 
 fn main() {
-    let window = WindowDesc::new(make_widget)
+    let window = WindowDesc::new(make_widget())
         .window_size(Size {
-            width: 800.0,
-            height: 800.0,
+            width: 600.0,
+            height: 600.0,
         })
         .resizable(false)
         .title(
